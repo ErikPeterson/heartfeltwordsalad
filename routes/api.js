@@ -2,7 +2,6 @@
 
 const Router = require('koa-router')
 const router = new Router();
-const bodyParser = require('koa-bodyparser');
 const auth = require('../middleware/auth');
 const Client = require('../lib/client');
 const randomWord = require('random-words');
@@ -28,10 +27,9 @@ router.use(function *(next){
         }
         this.status = e.status;
         this.body = JSON.stringify({error: message });
+        throw e;
     }
 });
-
-router.use(bodyParser());
 
 router.post('/sessions', 
     auth.passwordAuthParser, 
