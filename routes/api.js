@@ -25,6 +25,7 @@ router.use(function *(next){
             default:
                 throw e;
         }
+
         this.status = e.status;
         this.body = JSON.stringify({error: message });
         throw e;
@@ -44,6 +45,7 @@ router.post('/sessions',
 
 router.post('/texts',
     auth.jwt,
+    auth.filterRole('admin'),
     function *(next){
         let text = this.request.body.text.text;
         let author = this.request.body.text.author;
@@ -75,7 +77,6 @@ router.get('/texts',
 
 router.get('/texts/:id',
     function *(next){
-        console.log(this.params);
         let text = yield Client.getText(+this.params.id);
         if(!text) raiseError(404, 'Text not found');
         let author = yield Client.getAuthorForText(+this.params.id);

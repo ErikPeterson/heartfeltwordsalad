@@ -3,6 +3,7 @@
 const Client = require('../lib/client');
 const bcrypt = require('bcrypt');
 const jwt = require('koa-jwt');
+const jwtFn = jwt({algorithm: 'RS256', secret: process.env['JWT_PUBLIC_KEY'], debug: process.env.NODE_ENV !== 'production'});
 const raiseError = require('../lib/raise_error')
 
 const hash = function(text){
@@ -23,6 +24,12 @@ const compare = function(pass, hash){
     });
 };
 
+const setJwtUser = function *(next){
+    this.user = yield Client.getUser(this.state.user.username);
+    if(!this.user) raiseError(401, 'Unauthorized: user does not exist');
+    yield next;
+};
+
 module.exports = {
     passwordAuthParser: function *(next){
         this.auth = {};
@@ -41,9 +48,21 @@ module.exports = {
         yield next; 
     },
     signToken: function *(next){
-        let claims = {username: this.user.username};
-        this.jwt = jwt.sign(claims, process.env['JWT_PRIVATE_KEY'], {algorithm: 'RS256'});
+        let time = Date.UTC() / 1000;
+        let claims = {
+            username: this.user.username
+        };
+        this.jwt = jwt.sign(claims, process.env['JWT_PRIVATE_KEY'], {algorithm: 'RS256', expiresIn: '7d'});
         yield next;
     },
-    jwt: jwt({algorithm: 'RS256', secret: process.env['JWT_PUBLIC_KEY']})
+    filterRole: function(roles){
+        if(!Array.isArray(roles)) roles = [roles];
+        return function *(next){
+            if(!this.user || roles.indexOf(this.user.role) < 0) raiseError(401, 'Unauthorized: user does not have necessary privileges');
+            yield next;
+        }
+    },
+    jwt: function *(next){
+        yield jwtFn.call(this, setJwtUser.call(this, next));
+    }
 };
